@@ -1,0 +1,143 @@
+﻿@page "/home"
+@using Syncfusion.Blazor.Charts
+@using Syncfusion.Blazor.Inputs
+
+@inject HttpClient Http
+
+<div class="control-section">
+    <SfChart Title="Inflation - Consumer Price" Theme="@Theme">
+        <ChartArea><ChartAreaBorder Width="0"></ChartAreaBorder></ChartArea>
+        <ChartPrimaryXAxis ValueType="Syncfusion.Blazor.Charts.ValueType.DateTime" Format="yyyy-MM-ddTHH:mm">
+            <ChartAxisMajorGridLines Width="0"></ChartAxisMajorGridLines>
+        </ChartPrimaryXAxis>
+
+        <ChartPrimaryYAxis LabelFormat="n6"></ChartPrimaryYAxis>
+
+        <ChartTooltipSettings Enable="true" Header="${point.x}  Value = ${point.y}" Format="${point.tooltip}"></ChartTooltipSettings>
+
+        <ChartSeriesCollection>
+            <ChartSeries DataSource="@ChartData" Name="Residuals" XName="Period" Width="2" Opacity="1" YName="Value" Type="ChartSeriesType.Line" TooltipMappingName="Equation">
+                <ChartMarker Visible="true"></ChartMarker>
+            </ChartSeries>
+
+            <ChartSeries DataSource="@Band1Data" Name="Band1" XName="Period" YName="Value" Type="ChartSeriesType.Line"  TooltipMappingName="Equation">
+                <ChartMarker Visible="true"></ChartMarker>
+
+            </ChartSeries>
+            <ChartSeries DataSource="@Band2Data" Name="Band2" XName="Period" YName="Value" Type="ChartSeriesType.Line" TooltipMappingName="Equation">
+                <ChartMarker Visible="true"></ChartMarker>
+
+            </ChartSeries>
+
+
+        </ChartSeriesCollection>
+    </SfChart>
+    <SfNumericTextBox TValue="double" Max=4 Min=0.1 Step=0.1 @bind-Value="@Sigma"></SfNumericTextBox>
+
+</div>
+@code{
+
+    private double _sigma = 2.5;
+    public double Sigma
+    {
+        get
+        {
+            return _sigma;
+        }
+        set
+        {
+            _sigma = value;
+            ReCalcBands();
+        }
+    }
+
+    private Theme Theme { get; set; }
+
+    public List<LineChartData> Band1Data = new List<LineChartData>();
+    public List<LineChartData> Band2Data = new List<LineChartData>();
+
+
+    public List<LineChartData> ChartData = new List<LineChartData>();
+    //{
+    //    new LineChartData { Period = new DateTime(2005, 01, 01), ENG_InflationRate = 0.029894473441798297 },
+    //    new LineChartData { Period = new DateTime(2006, 01, 01), ENG_InflationRate = 0.0045423894914735641 },
+    //    new LineChartData { Period = new DateTime(2007, 01, 01), ENG_InflationRate = 0.0041773388914736476 },
+    //    new LineChartData { Period = new DateTime(2008, 01, 01), ENG_InflationRate = 0.029894473441798297 },
+    //    new LineChartData { Period = new DateTime(2009, 01, 01), ENG_InflationRate = 0.0039799665914737048 },
+    //    new LineChartData { Period = new DateTime(2010, 01, 01), ENG_InflationRate = 0.0071486530914737223 },
+    //    new LineChartData { Period = new DateTime(2011, 01, 01), ENG_InflationRate = 0.0046850518914736128 },
+    //};
+
+
+    double avg;
+    double stdDev;
+
+    private void ReCalcBands()
+    {
+        var firstPeriod = ChartData.First().Period;
+        var lastPeriod = ChartData.Last().Period;
+
+        Band1Data = new List<LineChartData>
+        {
+            new LineChartData { Period = firstPeriod, Value =  avg + (_sigma * stdDev), Equation = $"{avg}[mean] + ({_sigma}[sigma] * {stdDev}[StdDev])"},
+            new LineChartData { Period = lastPeriod, Value =  avg + (_sigma * stdDev), Equation = $"{avg}[mean] + ({_sigma}[sigma] * {stdDev}[StdDev])"}
+        };
+
+        Band2Data = new List<LineChartData>
+        {
+            new LineChartData { Period = firstPeriod, Value =  avg - (_sigma * stdDev), Equation = $"{avg}[mean] - ({_sigma}[sigma] * {stdDev}[StdDev])"},
+            new LineChartData { Period = lastPeriod, Value =  avg - (_sigma * stdDev), Equation = $"{avg}[mean] - ({_sigma}[sigma] * {stdDev}[StdDev])"}
+        };
+
+    }
+
+    protected async override Task OnInitializedAsync()
+    {
+        var resp = await Http.GetStringAsync(@"sample-data\AUDCAD_HK50.json");
+        var data = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<DateTime, (double diff, double v1, double v2, string equation)>>(resp);
+
+        var chartData = data.Select(x => new LineChartData { Period = x.Key, Value = x.Value.diff, Equation = x.Value.equation }).ToList();
+
+        ChartData = chartData;
+
+        var diffs = data.Select(x => x.Value.diff);
+        avg = diffs.Average();
+        stdDev = StandardDeviation(diffs.ToArray());
+
+
+        ReCalcBands();
+
+
+
+        //return base.OnInitializedAsync();
+    }
+
+    public static double StandardDeviation(double[] samples)
+    {
+        return Math.Sqrt(Variance(samples));
+    }
+
+    public static double Variance(double[] samples)
+    {
+        if (samples.Length <= 1)
+            return double.NaN;
+        double num1 = 0.0;
+        double sample = samples[0];
+        for (int index = 1; index < samples.Length; ++index)
+        {
+            sample += samples[index];
+            double num2 = (double)(index + 1) * samples[index] - sample;
+            num1 += num2 * num2 / (((double)index + 1.0) * (double)index);
+        }
+        return num1 / (double)(samples.Length - 1);
+    }
+
+
+    public class LineChartData
+    {
+        public DateTime Period { get; set; }
+        public double Value { get; set; }
+        public string Equation { get; set; }
+
+    }
+}

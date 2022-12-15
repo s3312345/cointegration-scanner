@@ -1,0 +1,423 @@
+﻿@page "/"
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Charts
+@using ChartJs.Blazor.LineChart
+@using ChartJs.Blazor.Common.Enums
+@using Syncfusion.Blazor.Inputs
+@using System.IO
+
+@inject HttpClient HttpClient
+
+<h1>Cointegrated Pairs : 2021-05-10</h1>
+
+
+
+<div class="col-lg-12 control-section">
+    <div class="content-wrapper">
+        <div class="row">
+            <SfGrid DataSource="@Orders" AllowGrouping="true" AllowSorting="true" AllowFiltering="true" AllowReordering="true" AllowPaging="true">
+                <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Menu"></GridFilterSettings>
+                @*<GridPageSettings PageSize="10"></GridPageSettings>*@
+                <GridSelectionSettings Type="SelectionType.Single"></GridSelectionSettings>
+                <GridEvents RowSelected="GetSelectedRecords" TValue="CointegrationRecords"></GridEvents>
+                @*<GridGroupSettings Columns="@GroupedColumns"></GridGroupSettings>*@
+            <GridColumns>
+                <GridColumn Field=@nameof(CointegrationRecords.Code1)></GridColumn>
+                <GridColumn Field=@nameof(CointegrationRecords.Code2)></GridColumn>
+                <GridColumn Field=@nameof(CointegrationRecords.PValue)></GridColumn>
+                <GridColumn Field=@nameof(CointegrationRecords.CrossOverCount)></GridColumn>
+                <GridColumn Field=@nameof(CointegrationRecords.Statistics)></GridColumn>
+                <GridColumn Field=@nameof(CointegrationRecords.Slope)></GridColumn>
+                <GridColumn Field=@nameof(CointegrationRecords.Intercept)></GridColumn>
+                <GridColumn Field=@nameof(CointegrationRecords.ScanWindowSize)></GridColumn>
+                <GridColumn Field=@nameof(CointegrationRecords.DiffsDictionary)></GridColumn>
+
+                @*<GridColumn Field=@nameof(Order.OrderID) IsPrimaryKey="true" HeaderText="Order ID" TextAlign="TextAlign.Right" Width="120"></GridColumn>
+        <GridColumn Field=@nameof(Order.CustomerID) HeaderText="Customer Name" Width="150"></GridColumn>
+        <GridColumn Field=@nameof(Order.OrderDate) HeaderText=" Order Date" Format="d" Type="ColumnType.Date" TextAlign="TextAlign.Right" Width="130"></GridColumn>
+        <GridColumn Field=@nameof(Order.Freight) HeaderText="Freight" Format="C2" TextAlign="TextAlign.Right" Width="120"></GridColumn>*@
+            </GridColumns>
+            </SfGrid>
+        </div>
+    </div>
+</div>
+
+@*<Chart Config="_config" SetupCompletedCallback="SetupCompletedCallback"></Chart>
+<SfNumericTextBox TValue="double" Max=4 Min=0.1 Step=0.1 @bind-Value="@currentCount"></SfNumericTextBox>*@
+
+<br>
+<br>
+<br>
+
+<SfChart Title="@ChartTitle" Theme="@Theme">
+    <ChartArea><ChartAreaBorder Width="0"></ChartAreaBorder></ChartArea>
+    <ChartPrimaryXAxis ValueType="Syncfusion.Blazor.Charts.ValueType.DateTime" Format="yyyy-MM-ddTHH:mm">
+        <ChartAxisMajorGridLines Width="0"></ChartAxisMajorGridLines>
+    </ChartPrimaryXAxis>
+
+    <ChartPrimaryYAxis LabelFormat="n6"></ChartPrimaryYAxis>
+
+    <ChartTooltipSettings Enable="true" Header="${point.x}  Value = ${point.y}" Format="${point.tooltip}"></ChartTooltipSettings>
+
+    <ChartSeriesCollection>
+        <ChartSeries DataSource="@ChartData" Name="Residuals" XName="Period" Width="2" Opacity="1" YName="Value" Type="ChartSeriesType.Line" TooltipMappingName="Equation">
+            <ChartMarker Visible="true"></ChartMarker>
+        </ChartSeries>
+
+        <ChartSeries DataSource="@Band1Data" Name="Band1" XName="Period" YName="Value" Type="ChartSeriesType.Line" TooltipMappingName="Equation">
+            <ChartMarker Visible="true"></ChartMarker>
+        </ChartSeries>
+
+        <ChartSeries DataSource="@Band2Data" Name="Band2" XName="Period" YName="Value" Type="ChartSeriesType.Line" TooltipMappingName="Equation">
+            <ChartMarker Visible="true"></ChartMarker>
+        </ChartSeries>
+
+        <ChartSeries DataSource="@BandAvg" Name="Avg" XName="Period" YName="Value" Type="ChartSeriesType.Line" TooltipMappingName="Equation">
+            <ChartMarker Visible="true"></ChartMarker>
+        </ChartSeries>
+
+
+    </ChartSeriesCollection>
+</SfChart>
+<SfNumericTextBox TValue="double" Max=4 Min=0.1 Step=0.1 @bind-Value="@Sigma"></SfNumericTextBox>
+
+
+
+@*<MudSlider Min="0" Max="4" Step="0.05" ValueChanged="@((double s) =>OnSearch(s))">Value: @currentCount.ToString("F2")</MudSlider>*@
+
+@code{
+
+    public string ChartTitle;
+
+    private double _sigma = 2.5;
+
+    public double Sigma
+    {
+        get
+        {
+            return _sigma;
+        }
+        set
+        {
+            _sigma = value;
+            ReCalcBands();
+        }
+    }
+
+    private Theme Theme { get; set; }
+
+    public List<LineChartData> Band1Data = new List<LineChartData>();
+    public List<LineChartData> Band2Data = new List<LineChartData>();
+    public List<LineChartData> BandAvg = new List<LineChartData>();
+
+
+    public List<LineChartData> ChartData = new List<LineChartData>();
+    //{
+    //    new LineChartData { Period = new DateTime(2005, 01, 01), ENG_InflationRate = 0.029894473441798297 },
+    //    new LineChartData { Period = new DateTime(2006, 01, 01), ENG_InflationRate = 0.0045423894914735641 },
+    //    new LineChartData { Period = new DateTime(2007, 01, 01), ENG_InflationRate = 0.0041773388914736476 },
+    //    new LineChartData { Period = new DateTime(2008, 01, 01), ENG_InflationRate = 0.029894473441798297 },
+    //    new LineChartData { Period = new DateTime(2009, 01, 01), ENG_InflationRate = 0.0039799665914737048 },
+    //    new LineChartData { Period = new DateTime(2010, 01, 01), ENG_InflationRate = 0.0071486530914737223 },
+    //    new LineChartData { Period = new DateTime(2011, 01, 01), ENG_InflationRate = 0.0046850518914736128 },
+    //};
+
+
+    double avg;
+    double stdDev;
+
+    private void ReCalcBands()
+    {
+        var firstPeriod = ChartData.First().Period;
+        var lastPeriod = ChartData.Last().Period;
+
+        Band1Data = new List<LineChartData>
+    {
+            new LineChartData { Period = firstPeriod, Value =  avg + (_sigma * stdDev), Equation = $"{avg}[mean] + ({_sigma}[sigma] * {stdDev}[StdDev])"},
+            new LineChartData { Period = lastPeriod, Value =  avg + (_sigma * stdDev), Equation = $"{avg}[mean] + ({_sigma}[sigma] * {stdDev}[StdDev])"}
+        };
+
+        Band2Data = new List<LineChartData>
+        {
+            new LineChartData { Period = firstPeriod, Value =  avg - (_sigma * stdDev), Equation = $"{avg}[mean] - ({_sigma}[sigma] * {stdDev}[StdDev])"},
+            new LineChartData { Period = lastPeriod, Value =  avg - (_sigma * stdDev), Equation = $"{avg}[mean] - ({_sigma}[sigma] * {stdDev}[StdDev])"}
+        };
+
+        BandAvg = new List<LineChartData>
+        {
+            new LineChartData { Period = firstPeriod, Value =  avg},
+            new LineChartData { Period = lastPeriod, Value =  avg }
+        };
+    }
+
+    protected async Task InitializeSfChart(string dataFile)
+    {
+        var resp = await Http.GetStringAsync(@"sample-data\" + dataFile);
+        var data = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<DateTime, (double diff, double v1, double v2, string equation)>>(resp);
+
+        var chartData = data.Select(x => new LineChartData { Period = x.Key, Value = x.Value.diff, Equation = x.Value.equation }).ToList();
+        ChartTitle = Path.GetFileNameWithoutExtension(dataFile);
+
+        ChartData = chartData;
+
+        var diffs = data.Select(x => x.Value.diff);
+        avg = diffs.Average();
+        stdDev = StandardDeviation(diffs.ToArray());
+
+
+        ReCalcBands();
+    }
+
+    public static double StandardDeviation(double[] samples)
+    {
+        return Math.Sqrt(Variance(samples));
+    }
+
+    public static double Variance(double[] samples)
+    {
+        if (samples.Length <= 1)
+            return double.NaN;
+        double num1 = 0.0;
+        double sample = samples[0];
+        for (int index = 1; index < samples.Length; ++index)
+        {
+            sample += samples[index];
+            double num2 = (double)(index + 1) * samples[index] - sample;
+            num1 += num2 * num2 / (((double)index + 1.0) * (double)index);
+        }
+        return num1 / (double)(samples.Length - 1);
+    }
+
+
+    public class LineChartData
+    {
+        public DateTime Period { get; set; }
+        public double Value { get; set; }
+        public string Equation { get; set; }
+
+    }
+}
+
+@code {
+
+    public void SetupCompletedCallback()
+    {
+
+    }
+
+    public async Task GetSelectedRecords(RowSelectEventArgs<CointegrationRecords> args)
+    {
+        //var SelectedRowIndexes = await this.Grid.GetSelectedRowIndexes();
+        //TotalValue = SelectedRowIndexes.ToArray();
+        //SelectedValue = "";
+        //foreach (var data in TotalValue)
+        //{
+        //    SelectedValue = SelectedValue + " " + data;
+        //}
+
+        //args.Data.DiffsDictionary
+        await InitializeSfChart(args.Data.DiffsDictionary);
+
+        await DrawChart(args.Data.DiffsDictionary);
+        StateHasChanged();
+    }
+
+    public string[] GroupedColumns = new string[] { "Code1" };
+    public List<CointegrationRecords> Orders { get; set; }
+
+    // @bind-Value="currentCount"
+
+    public void ValueChanged()
+    {
+
+    }
+
+    private double _currentCount = 2;
+    private double currentCount
+    {
+        get
+        {
+            return _currentCount;
+        }
+        set
+        {
+            _currentCount = value;
+            RefillDatasets();
+        }
+    }
+
+    private void IncrementCount()
+    {
+        RefillDatasets();
+
+    }
+
+    private void OnSearch(double text)
+    {
+        RefillDatasets();
+    }
+
+
+    private LineConfig _config;
+    [Inject]
+    private HttpClient Http { get; set; }
+
+    private int CurrentValue { get; set; } = 2;
+
+    Dictionary<DateTime, (double diff, double v1, double v2, string equation)> data;
+
+    private void onInputChange(double x)
+    {
+        //currentCount++;
+        RefillDatasets();
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        _config = new LineConfig
+        {
+            Options = new LineOptions
+            {
+                Responsive = true,
+                Title = new ChartJs.Blazor.Common.OptionsTitle
+                {
+                    Display = true,
+                    Text = "ChartJs.Blazor Line Chart"
+                },
+
+            }
+        };
+
+
+
+        Orders = await Http.GetFromJsonAsync<List<CointegrationRecords>>("sample-data/stats.json");
+
+    }
+
+    async Task DrawChart(string file)
+    {
+
+        var resp = await Http.GetStringAsync($"sample-data/{file}");
+        data = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<DateTime, (double diff, double v1, double v2, string equation)>>(resp);
+
+
+        _config.Data.Labels.Clear();
+        foreach (var dateTime in data.Keys)
+        {
+            _config.Data.Labels.Add(dateTime.ToString());
+        }
+
+        var values = data.Values.Select(x => x.diff);
+
+
+        _config.Data.Datasets.Clear();
+
+        var ds = new LineDataset<double>(values)
+        {
+            BorderColor = "black",
+            Label = "Diff",
+            Fill = FillingMode.Disabled
+        };
+
+
+
+        _config.Data.Datasets.Add(ds);
+
+        RefillDatasets();
+    }
+
+    void RefillDatasets()
+    {
+        if (_config.Data.Datasets.Count == 3)
+        {
+            _config.Data.Datasets.RemoveAt(2);
+            _config.Data.Datasets.RemoveAt(1);
+        }
+
+
+
+        var values = data.Values.Select(x => x.diff);
+
+        var meanStdDev = MathNet.Numerics.Statistics.Statistics.MeanStandardDeviation(values);
+
+
+        double[] stdDev = new double[data.Values.Count];
+        stdDev[0] = meanStdDev.Item1 + (meanStdDev.Item2 * currentCount);
+        stdDev[data.Values.Count - 1] = meanStdDev.Item1 + (meanStdDev.Item2 * currentCount);
+
+
+        _config.Data.Datasets.Add(new LineDataset<double>(data.Values.Select(x => (meanStdDev.Item1 + (meanStdDev.Item2 * currentCount))))
+        {
+            BorderColor = "blue",
+            Label = "Band1",
+            PointRadius = 0,
+
+            Fill = FillingMode.Disabled
+        });
+
+        _config.Data.Datasets.Add(new LineDataset<double>(data.Values.Select(x => (meanStdDev.Item1 - (meanStdDev.Item2 * currentCount))))
+        {
+            BorderColor = "red",
+            Label = "Band2",
+            PointRadius = 0,
+
+            Fill = FillingMode.Disabled
+        });
+
+        _config.Data.Datasets.Add(new LineDataset<double>(data.Values.Select(x => (meanStdDev.Item1)))
+        {
+            BorderColor = "yellow",
+            Label = "Mean",
+            PointRadius = 0,
+
+            Fill = FillingMode.Disabled
+        });
+
+        //_config.Data.Datasets.Add(new LineDataset<double>(data.Values.Select(x => x.v1))
+        //{
+        //    BorderColor = "green",
+        //    Label = "v1",
+        //    PointRadius = 0,
+
+        //    Fill = FillingMode.Disabled
+        //});
+
+        //_config.Data.Datasets.Add(new LineDataset<double>(data.Values.Select(x => x.v1))
+        //{
+        //    BorderColor = "green",
+        //    Label = "v1",
+        //    PointRadius = 0,
+
+        //    Fill = FillingMode.Disabled
+        //});
+
+        //_config.Data.Datasets.Add(new LineDataset<double>(data.Values.Select(x => x.v2))
+        //{
+        //    BorderColor = "purple",
+        //    Label = "v2",
+        //    PointRadius = 0,
+
+        //    Fill = FillingMode.Disabled
+        //});
+    }
+
+
+
+    public class CointegrationRecords
+    {
+        public string Code1 { get; set; }
+        public string Code2 { get; set; }
+        public double PValue { get; set; }
+        public double Statistics { get; set; }
+        public double Slope { get; set; }
+        public double Intercept { get; set; }
+        public double CrossOverCount { get; set; }
+        public int ScanWindowSize { get; set; }
+        public int Index { get; set; }
+        //public Dictionary<DateTime, (double diff, double v1, double v2)> DiffsDictionary { get; set; }
+        public string DiffsDictionary { get; set; }
+        public DateTime ScanWindowStart { get; set; }
+        public DateTime ScanWindowEnd { get; set; }
+    }
+}

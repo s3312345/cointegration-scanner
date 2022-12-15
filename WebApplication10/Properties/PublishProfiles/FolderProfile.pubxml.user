@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+https://go.microsoft.com/fwlink/?LinkID=208121.
+-->
+<Project>
+  <PropertyGroup>
+    <_PublishTargetUrl>C:\Users\steve\source\repos\MarketInfo Website\WebApplication10\bin\Release\net6.0\browser-wasm\publish\</_PublishTargetUrl>
+    <History>True|2022-12-11T03:26:46.8805903Z;</History>
+    <LastFailureDetails />
+  </PropertyGroup>
+</Project>
