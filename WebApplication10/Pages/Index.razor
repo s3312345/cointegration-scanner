@@ -79,7 +79,17 @@
 
     </ChartSeriesCollection>
 </SfChart>
-<SfNumericTextBox TValue="double" Max=4 Min=0.1 Step=0.1 @bind-Value="@Sigma"></SfNumericTextBox>
+
+<table align="center" border="0" cellpadding="1" cellspacing="1" style="width:500px">
+    <tbody>
+    <tr>
+        <td>Standard Deviation Sigma:</td>
+            <td><SfNumericTextBox TValue="double" Max=4 Min=0.1 Step=0.1 @bind-Value="@Sigma"></SfNumericTextBox></td>
+    </tr>
+    </tbody>
+</table>
+
+
 
 
 
