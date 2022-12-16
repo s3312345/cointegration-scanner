@@ -15,7 +15,7 @@
 <div class="col-lg-12 control-section">
     <div class="content-wrapper">
         <div class="row">
-            <SfGrid DataSource="@Orders" AllowGrouping="true" AllowSorting="true" AllowFiltering="true" AllowReordering="true" AllowPaging="true">
+            <SfGrid @ref="Grid" DataSource="@Orders" AllowGrouping="true" AllowSorting="true" AllowFiltering="true" AllowReordering="true" AllowPaging="true" SelectedRowIndex="1">
                 <GridFilterSettings Type="Syncfusion.Blazor.Grids.FilterType.Menu"></GridFilterSettings>
                 @*<GridPageSettings PageSize="10"></GridPageSettings>*@
                 <GridSelectionSettings Type="SelectionType.Single"></GridSelectionSettings>
@@ -51,7 +51,7 @@
 
 <SfChart Title="@ChartTitle" Theme="@Theme">
     <ChartArea><ChartAreaBorder Width="0"></ChartAreaBorder></ChartArea>
-    <ChartPrimaryXAxis ValueType="Syncfusion.Blazor.Charts.ValueType.DateTime" Format="yyyy-MM-ddTHH:mm">
+    <ChartPrimaryXAxis ValueType="Syncfusion.Blazor.Charts.ValueType.DateTime" Format="MM-dd HH:mm">
         <ChartAxisMajorGridLines Width="0"></ChartAxisMajorGridLines>
     </ChartPrimaryXAxis>
 
@@ -98,6 +98,9 @@
 @code{
 
     public string ChartTitle;
+    
+    SfGrid<CointegrationRecords> Grid;
+
 
     private double _sigma = 2.5;
 
@@ -176,6 +179,7 @@
 
 
         ReCalcBands();
+
     }
 
     public static double StandardDeviation(double[] samples)
@@ -212,6 +216,7 @@
 
     public void SetupCompletedCallback()
     {
+        Grid.SelectRow(0);
 
     }
 
@@ -302,6 +307,8 @@
 
 
         Orders = await Http.GetFromJsonAsync<List<CointegrationRecords>>("sample-data/stats.json");
+
+        await Grid.SelectRow(0);
 
     }
 
